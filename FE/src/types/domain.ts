@@ -17,8 +17,14 @@ export interface ChecklistTemplatesResponse {
   templates: ChecklistTemplate[];
 }
 
+export type ChecklistMapEntry = Record<string, string | boolean | null>;
+
+export interface ChecklistResponseV2 {
+  items: ChecklistMapEntry[];
+}
+
 export interface ChecklistCheck {
-  itemId: string;
+  item_id: string;
   checked: boolean;
   memo?: string;
 }
@@ -28,40 +34,43 @@ export interface SaveChecklistPayload {
 }
 
 export interface RoomPhoto {
-  photoId: string;
-  objectUrl: string;
-  uploadedAt: string;
+  photo_id: string;
+  object_url: string;
+  created_at: string;
 }
 
 export interface Room {
-  id: string;
-  title: string;
-  category: string;
-  price: number; // 금액 단위: 만원
-  description?: string;
-  address?: string;
-  createdAt: string;
-  updatedAt?: string;
-  audioUrl?: string;
-  photos?: RoomPhoto[];
+  room_id: string;
+  address: string;
+  type: string;
+  floor: number;
+  deposit: number;
+  rent_monthly: number;
+  fee_included: boolean;
+  fee_mgmt?: number;
+  created_at: string;
+  photos: RoomPhoto[];
+  checklist?: RoomChecklist;
 }
 
 export interface CreateRoomPayload {
-  title: string;
-  category: string;
-  price: number;
-  description?: string;
-  address?: string;
+  address: string;
+  type: string;
+  floor: number;
+  deposit: number;
+  rent_monthly: number;
+  fee_included: boolean;
+  fee_mgmt?: number;
+  checklist: RoomChecklist;
 }
 
-export interface RoomsListResponse {
-  items: Room[];
-  nextPageToken?: string;
+export interface RoomChecklist {
+  items: ChecklistMapEntry[];
 }
 
 export interface OcrUploadResponse {
-  ocrId: string;
-  objectUrl: string;
+  ocr_id: string;
+  object_url: string;
 }
 
 export type OcrStage = 'queued' | 'processing' | 'done' | 'failed';
@@ -73,28 +82,29 @@ export interface OcrField {
 }
 
 export interface OcrReport {
-  ocrId: string;
+  ocr_id: string;
   status: OcrStage;
   text: string;
   fields?: OcrField[];
-  createdAt: string;
+  created_at: string;
 }
 
 export type LlmStage = 'queued' | 'processing' | 'done' | 'failed';
 
 export interface LlmReport {
-  reportId: string;
+  room_id: string;
+  user_id: string;
   status: LlmStage;
   summary?: string;
   highlights?: string[];
   recommendations?: string[];
-  createdAt: string;
+  created_at: string;
 }
 
 export interface SttBubble {
   id: string;
   speaker: number | null;
   text: string;
-  startedAt?: number;
-  endedAt?: number;
+  started_at?: number;
+  ended_at?: number;
 }

@@ -3,6 +3,8 @@ import {
   ChecklistTemplate,
   ChecklistTemplatesResponse,
   SaveChecklistPayload,
+  ChecklistMapEntry,
+  ChecklistResponseV2,
 } from '../types/domain';
 
 export interface ChecklistQueryParams {
@@ -18,9 +20,18 @@ export async function fetchChecklistTemplates(
     category,
   });
 
-  const response = await api(`/v1/checklists?${params.toString()}`);
+  const response = await api(`/v1/checklists?${params.toString()}`, { skipAuth: true });
   const data = await response.json() as ChecklistTemplatesResponse;
   return data.templates;
+}
+
+export async function fetchRoomChecklist(): Promise<ChecklistMapEntry[]> {
+  const response = await api('/v1/checklists');
+  const data = await response.json() as ChecklistResponseV2 | ChecklistMapEntry[];
+  if (Array.isArray(data)) {
+    return data;
+  }
+  return Array.isArray(data?.items) ? data.items : [];
 }
 
 export async function saveChecklistChecks(

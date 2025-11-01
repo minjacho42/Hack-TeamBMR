@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { fetchAuthToken } from './api/auth';
 import { RecorderControls } from './components/RecorderControls';
 import { TranscriptDisplay } from './components/TranscriptDisplay';
 import { QaSummaryPanel } from './components/QaSummaryPanel';
@@ -27,6 +28,16 @@ function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const existingToken = window.localStorage.getItem('token');
+    if (!existingToken) {
+      fetchAuthToken();
+    }
+  }, []);
 
   const handleStart = useCallback(async () => {
     try {
