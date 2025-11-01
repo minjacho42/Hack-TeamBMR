@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+import unicodedata
+from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
 
@@ -7,6 +10,8 @@ from app.database.mongodb import get_rooms_collection, get_session
 from app.models import RoomBase, RoomCreateRequest, RoomDetailResponse, RoomPhoto
 from app.repositories import RoomRepository
 from app.services.storage_service import StorageService, get_storage_service
+
+_SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 class RoomService:
@@ -61,7 +66,8 @@ class RoomService:
             return None
 
         photo_id = f"ph_{uuid4().hex[:12]}"
-        object_key = f"rooms/{user_id}/{room_id}/{photo_id}/{filename}"
+        safe_filename = self._sanitize_filename(filename)
+        object_key = f"rooms/{user_id}/{room_id}/{photo_id}/{safe_filename}"
 
         await self._storage.upload_bytes(
             object_key,
@@ -84,12 +90,23 @@ class RoomService:
             return None
 
         url = await self._storage.generate_presigned_url(object_key)
+        print(url)
         return RoomPhoto(photo_id=photo_id, object_url=url)
 
     def _materialize_room(self, user_id: str, payload: RoomCreateRequest) -> RoomBase:
         room_id = f"rm_{uuid4().hex[:10]}"
         data = payload.model_dump()
         return RoomBase(**data, room_id=room_id, user_id=user_id)
+
+    def _sanitize_filename(self, filename: str) -> str:
+        """Normalise incoming filenames so presigned URLs remain valid."""
+        name = Path(filename).name or "upload"
+        normalized = unicodedata.normalize("NFKC", name)
+        collapsed = _SAFE_FILENAME_RE.sub("-", normalized).strip("-")
+        if not collapsed:
+            collapsed = f"photo-{uuid4().hex[:8]}"
+        # S3 keys support long components, but keep things reasonable.
+        return collapsed[:128]
 
     async def _to_response(
         self,
