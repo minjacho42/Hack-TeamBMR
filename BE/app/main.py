@@ -89,21 +89,22 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             event = payload.get("event")
             data = payload.get("data") or {}
 
-            if event == "rtc.offer":
-                session = await session_manager.create_session(websocket)
-                session_id = session.session_id
+            if event == "session.init":
+                if session is None:
+                    session = await session_manager.create_session(websocket)
+                    session_id = session.session_id
+                await websocket.send_json(
+                    {
+                        "event": "session.ready",
+                        "data": {"session_id": session.session_id},
+                    },
+                )
+            elif event == "rtc.offer":
+                if session is None:
+                    session = await session_manager.create_session(websocket)
+                    session_id = session.session_id
                 try:
                     answer = await session.handle_offer(data)
-                except NotImplementedError:
-                    await websocket.send_json(
-                        {
-                            "event": "stt.error",
-                            "data": {
-                                "code": "NOT_IMPLEMENTED",
-                                "message": "WebRTC offer 처리가 아직 구현되지 않았습니다.",
-                            },
-                        },
-                    )
                 except ValueError as exc:
                     await websocket.send_json(
                         {
@@ -127,11 +128,27 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 except RuntimeError:
                     continue
                 await session_ref.add_ice_candidate(data)
+            elif event == "session.close":
+                if session_id:
+                    await session_manager.remove(session_id)
+                    session = None
+                    session_id = None
             elif event == "rtc.stop":
                 if session_id:
                     await session_manager.remove(session_id)
                     session = None
                     session_id = None
+            elif event == "rtc.start":
+                try:
+                    session_ref = await _ensure_session(session, websocket)
+                except RuntimeError:
+                    continue
+                await websocket.send_json(
+                    {
+                        "event": "stt.webrtc.start",
+                        "data": {"session_id": session_ref.session_id},
+                    },
+                )
             else:
                 await websocket.send_json(
                     {
