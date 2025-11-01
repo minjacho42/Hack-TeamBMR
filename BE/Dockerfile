@@ -10,11 +10,19 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         build-essential \
+        git \
         curl \
         ffmpeg \
         libopus-dev \
         libvpx-dev \
         libffi-dev \
+        libavformat-dev \
+        libavcodec-dev \
+        libavdevice-dev \
+        libavutil-dev \
+        libswscale-dev \
+        libswresample-dev \
+        libsrtp2-dev \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
