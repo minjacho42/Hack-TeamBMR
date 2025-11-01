@@ -68,9 +68,14 @@ class AudioPipeline:
         frames = self._resampler.resample(frame)
         result: list[bytes] = []
         for resampled in frames:
-            buffer = resampled.planes[0].to_bytes()
-            if buffer:
-                result.append(bytes(buffer))
+            ndarray = resampled.to_ndarray()
+            if ndarray is None:
+                continue
+            if ndarray.ndim == 1:
+                result.append(ndarray.tobytes())
+            else:
+                for channel_data in ndarray:
+                    result.append(channel_data.tobytes())
         return result
 
     async def _push_chunk(self, chunk: bytes) -> None:
