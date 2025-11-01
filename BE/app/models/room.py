@@ -43,6 +43,10 @@ class RoomChecklist(BaseModel):
 class RoomPhoto(BaseModel):
     photo_id: str = Field(..., description="Unique identifier for the photo.")
     object_url: str = Field(..., description="Public or signed URL for the photo asset.")
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Timestamp when the photo was registered.",
+    )
 
 class RoomBase(BaseModel):
     room_id: Optional[str] = Field(
@@ -68,6 +72,10 @@ class RoomBase(BaseModel):
     photo_id: Optional[str] = Field(
         default=None,
         description="Identifier of the primary photo stored for this room.",
+    )
+    photo_key: Optional[str] = Field(
+        default=None,
+        description="Object storage key for the primary photo.",
     )
 
 

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Dict, List
-from uuid import uuid4
+from typing import List
 
-from fastapi import APIRouter, File, HTTPException, Path, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile, status
 
-from app.models import RoomBase, RoomChecklist, RoomDetailResponse, RoomPhoto
+from app.models import RoomBase, RoomDetailResponse, RoomPhoto
+from app.services import RoomService, get_room_service
 
 router = APIRouter()
 
@@ -16,29 +15,50 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
     response_model=RoomDetailResponse,
 )
-async def create_room(payload: RoomBase) -> RoomDetailResponse:
-    pass
+async def create_room(
+    payload: RoomBase,
+    service: RoomService = Depends(get_room_service),
+) -> RoomDetailResponse:
+    return await service.create_room(payload)
 
-@router.get("/rooms", response_model=List[RoomDetailResponse])
+
+@router.get(
+    "/rooms",
+    response_model=List[RoomDetailResponse],
+)
 async def list_rooms(
+    page: int = Query(1, ge=1, description="Page number for pagination."),
+    size: int = Query(20, ge=1, le=100, description="Page size for pagination."),
+    service: RoomService = Depends(get_room_service),
 ) -> List[RoomDetailResponse]:
-    pass
+    return await service.list_rooms(page, size)
 
 
 @router.get(
     "/rooms/{room_id}",
     response_model=RoomDetailResponse,
 )
-async def get_room(room_id: str = Path(..., description="Unique room identifier.")) -> RoomDetailResponse:
-    pass
+async def get_room(
+    room_id: str = Path(..., description="Unique room identifier."),
+    service: RoomService = Depends(get_room_service),
+) -> RoomDetailResponse:
+    room = await service.get_room(room_id)
+    if not room:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found.")
+    return room
 
 
 @router.delete(
     "/rooms/{room_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_room(room_id: str = Path(..., description="Unique room identifier.")) -> None:
-    pass
+async def delete_room(
+    room_id: str = Path(..., description="Unique room identifier."),
+    service: RoomService = Depends(get_room_service),
+) -> None:
+    deleted = await service.delete_room(room_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found.")
 
 
 @router.post(
@@ -49,5 +69,19 @@ async def delete_room(room_id: str = Path(..., description="Unique room identifi
 async def upload_room_photo(
     room_id: str = Path(..., description="Unique room identifier."),
     file: UploadFile = File(...),
+    service: RoomService = Depends(get_room_service),
 ) -> RoomPhoto:
-    pass
+    filename = file.filename or "photo.jpg"
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file upload.")
+
+    photo = await service.attach_photo(
+        room_id,
+        filename,
+        content,
+        file.content_type,
+    )
+    if not photo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found.")
+    return photo
