@@ -79,6 +79,7 @@ class Transcriber:
 
     async def _run(self) -> None:
         try:
+            append_debug_log(self._settings.logs_dir, f"[{self._session_id}] transcriber _run start")
             await asyncio.to_thread(self._streaming_recognize)
         except DefaultCredentialsError as exc:
             logger.error("Google credentials not configured for session %s: %s", self._session_id, exc)
@@ -90,6 +91,8 @@ class Transcriber:
             if self._loop:
                 await events.emit_error(self._websocket, "UPSTREAM_FAIL", str(exc))
             append_debug_log(self._settings.logs_dir, f"[{self._session_id}] transcriber failed: {exc}")
+        finally:
+            append_debug_log(self._settings.logs_dir, f"[{self._session_id}] transcriber _run end")
 
     def _streaming_recognize(self) -> None:
         if self._settings.google_application_credentials:
@@ -120,6 +123,8 @@ class Transcriber:
             single_utterance=False,
         )
 
+        append_debug_log(self._settings.logs_dir, f"[{self._session_id}] streaming_recognize start")
+
         try:
             responses = client.streaming_recognize(self._request_generator(streaming_config))
             for response in responses:
@@ -131,6 +136,7 @@ class Transcriber:
                     events.emit_error(self._websocket, "UPSTREAM_FAIL", str(exc)),
                     self._loop,
                 )
+            append_debug_log(self._settings.logs_dir, f"[{self._session_id}] google stt error: {exc}")
         finally:
             duration = max(time.monotonic() - self._started_at, 0.0)
             logger.debug(
@@ -138,6 +144,10 @@ class Transcriber:
                 self._session_id,
                 duration,
                 self._final_count,
+            )
+            append_debug_log(
+                self._settings.logs_dir,
+                f"[{self._session_id}] streaming_recognize finished duration={duration:.2f}s finals={self._final_count}",
             )
 
     def _request_generator(self, streaming_config: speech_types.StreamingRecognitionConfig):
@@ -148,9 +158,11 @@ class Transcriber:
             future = asyncio.run_coroutine_threadsafe(self._audio_queue.get(), self._loop)
             chunk = future.result()
             if chunk is None:
+                append_debug_log(self._settings.logs_dir, f"[{self._session_id}] request_generator received sentinel")
                 break
             if not chunk:
                 continue
+            append_debug_log(self._settings.logs_dir, f"[{self._session_id}] request_generator sending chunk size={len(chunk)}")
             yield speech_types.StreamingRecognizeRequest(audio_content=chunk)
 
     def _handle_response(self, response: StreamingRecognizeResponse) -> None:
