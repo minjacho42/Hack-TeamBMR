@@ -8,7 +8,6 @@ from .checklist import (
 from .llm import LLMReportAck, LLMReportDetail, LLMReportTriggerPayload
 from .ocr import OcrBase, OcrDetailResponse, OcrListResponse, OcrUploadResponse
 from .room import RoomBase, RoomChecklist, RoomDetailResponse, RoomPhoto
-from .term import Term, TermListResponse
 
 __all__ = [
     "ChecklistCategory",
@@ -27,6 +26,4 @@ __all__ = [
     "RoomChecklist",
     "RoomDetailResponse",
     "RoomPhoto",
-    "Term",
-    "TermListResponse",
 ]
