@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from typing import Dict, List, Any
 from app.database.mongodb import get_llm_collection, get_session
 from app.models import LLMReportDetail
 from app.repositories import LlmRepository
-
+from app.services.ocr_service import get_ocr_service
+from app.use_cases.llm.llm_usecase import get_llm_usecase
 
 class LlmService:
     def __init__(self, repository: LlmRepository) -> None:
@@ -16,19 +18,19 @@ class LlmService:
         if report:
             return report
 
+        llm_usecase = get_llm_usecase()
+        ocr_service = get_ocr_service()
+
+        stt_details: List[Dict[str, Any]] = []
+        ocr_details: List[Dict[str, Any]] = await ocr_service.list_details(user_id, report_id)
+        
         # MVP fallback: synthesise a completed report when not found.
         report = LLMReportDetail(
             report_id=report_id,
             user_id=user_id,
             status="done",
             created_at=datetime.utcnow(),
-            detail={
-                "summary": "모든 핵심 항목이 충족되었습니다.",
-                "recommendations": [
-                    "임대차 계약서 주요 조항을 재검토하세요.",
-                    "등기부 등본을 최신본으로 확보하세요.",
-                ],
-            },
+            detail=await llm_usecase.process(stt_details, ocr_details)
         )
 
         async with get_session() as session:
