@@ -208,14 +208,18 @@ class STTSession:
 
     async def _consume_audio(self, track: MediaStreamTrack) -> None:
         try:
+            frame_index = 0
             while not self._closed.is_set():
                 frame = await track.recv()
+                frame_index += 1
+                append_debug_log(self._logs_dir, f"[{self.session_id}] received frame #{frame_index} from track")
                 await self._ensure_transcriber_started()
                 await self._audio_pipeline.handle_frame(frame)
         except asyncio.CancelledError:
             pass
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Audio consumption failed for session %s: %s", self.session_id, exc)
+            append_debug_log(self._logs_dir, f"[{self.session_id}] audio consumption failed: {exc}")
         finally:
             try:
                 self._audio_queue.put_nowait(None)
