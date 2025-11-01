@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from app.database.mongodb import get_ocr_collection, get_session
@@ -73,6 +73,10 @@ class OcrService:
             )
 
         return responses, pending
+
+    async def list_details(self, user_id: str, report_id: str) -> List[Dict[str, Any]]:
+        records = await self._repository.list_by_report(user_id, report_id)
+        return [record.detail for record in records]
 
 
 def get_ocr_service() -> OcrService:
