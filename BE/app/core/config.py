@@ -34,8 +34,8 @@ class Settings(BaseSettings):
         default=None,
         alias="GOOGLE_APPLICATION_CREDENTIALS",
     )
-    rtc_sample_rate: int = Field(default=48_000, alias="RTC_SAMPLE_RATE")
-    stt_sample_rate: int = Field(default=48_000, alias="STT_SAMPLE_RATE")
+    rtc_sample_rate: int = Field(default=48000, alias="RTC_SAMPLE_RATE")
+    stt_sample_rate: int = Field(default=48000, alias="STT_SAMPLE_RATE")
     rtc_language: str = Field(default="ko-KR", alias="RTC_LANGUAGE")
     stt_model: str = Field(default="default", alias="STT_MODEL")
     stt_use_enhanced: bool = Field(default=True, alias="STT_USE_ENHANCED")
