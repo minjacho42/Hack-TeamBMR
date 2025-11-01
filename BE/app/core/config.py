@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
@@ -53,10 +54,17 @@ class Settings(BaseSettings):
 
     def model_post_init(self, __context: Any) -> None:  # type: ignore[override]
         if self.google_application_credentials:
-            os.environ.setdefault(
-                "GOOGLE_APPLICATION_CREDENTIALS",
-                str(self.google_application_credentials),
-            )
+            credentials_path = Path(self.google_application_credentials)
+            if not credentials_path.is_absolute():
+                credentials_path = Path.cwd() / credentials_path
+            self.google_application_credentials = credentials_path
+
+            if credentials_path.exists():
+                os.environ.setdefault("GOOGLE_APPLICATION_CREDENTIALS", str(credentials_path))
+            else:
+                logging.getLogger(__name__).warning(
+                    "Google credentials file not found at %s", credentials_path,
+                )
 
         for directory in (self.storage_dir, self.analysis_dir, self.logs_dir):
             Path(directory).mkdir(parents=True, exist_ok=True)

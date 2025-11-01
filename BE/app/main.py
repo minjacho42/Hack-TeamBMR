@@ -12,6 +12,10 @@ from app.core.config import get_settings
 from app.sessions.manager import SessionManager
 from app.sessions.stt_session import STTSession
 
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 session_manager = SessionManager(settings=settings)
@@ -89,10 +93,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             event = payload.get("event")
             data = payload.get("data") or {}
 
+            logger.debug("Received event=%s data=%s", event, data)
+
             if event == "session.init":
                 if session is None:
                     session = await session_manager.create_session(websocket)
                     session_id = session.session_id
+                    logger.info("Created STT session %s", session_id)
                 await websocket.send_json(
                     {
                         "event": "session.ready",
@@ -116,6 +123,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         },
                     )
                 else:
+                    logger.debug("Sending rtc.answer for session %s", session.session_id)
                     await websocket.send_json(
                         {
                             "event": "stt.webrtc.answer",
@@ -127,14 +135,17 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     session_ref = await _ensure_session(session, websocket)
                 except RuntimeError:
                     continue
+                logger.debug("Applying remote ICE candidate for session %s", session_ref.session_id)
                 await session_ref.add_ice_candidate(data)
             elif event == "session.close":
                 if session_id:
+                    logger.info("Session %s closed by client", session_id)
                     await session_manager.remove(session_id)
                     session = None
                     session_id = None
             elif event == "rtc.stop":
                 if session_id:
+                    logger.info("Session %s stopped by client", session_id)
                     await session_manager.remove(session_id)
                     session = None
                     session_id = None

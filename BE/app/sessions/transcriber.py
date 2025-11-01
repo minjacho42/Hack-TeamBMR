@@ -9,6 +9,8 @@ from google.api_core import exceptions as google_exceptions
 from google.cloud import speech_v1 as speech
 from google.cloud.speech_v1 import types as speech_types
 from google.cloud.speech_v1.types import StreamingRecognizeResponse
+from google.auth.exceptions import DefaultCredentialsError
+from google.oauth2 import service_account
 
 from app.core.config import Settings
 from app.sessions import events
@@ -66,13 +68,26 @@ class Transcriber:
     async def _run(self) -> None:
         try:
             await asyncio.to_thread(self._streaming_recognize)
+        except DefaultCredentialsError as exc:
+            logger.error("Google credentials not configured: %s", exc)
+            if self._loop:
+                await events.emit_error(self._websocket, "GOOGLE_AUTH_MISSING", str(exc))
         except Exception as exc:  # pragma: no cover - fallback reporting
             logger.exception("Transcriber run failed: %s", exc)
             if self._loop:
                 await events.emit_error(self._websocket, "UPSTREAM_FAIL", str(exc))
 
     def _streaming_recognize(self) -> None:
-        client = speech.SpeechClient()
+        if self._settings.google_application_credentials:
+            try:
+                credentials = service_account.Credentials.from_service_account_file(
+                    str(self._settings.google_application_credentials),
+                )
+                client = speech.SpeechClient(credentials=credentials)
+            except FileNotFoundError as exc:
+                raise DefaultCredentialsError(str(exc)) from exc
+        else:
+            client = speech.SpeechClient()
         config = speech_types.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
             sample_rate_hertz=self._settings.stt_sample_rate,

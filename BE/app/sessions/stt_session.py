@@ -77,14 +77,16 @@ class STTSession:
         }
 
     async def add_ice_candidate(self, payload: Dict[str, Any]) -> None:
-        candidate_value = payload.get("candidate")
-        if not payload or candidate_value in (None, ""):
+        candidate_value = payload.get("candidate") if payload else None
+        if candidate_value in (None, ""):
+            logger.debug("Session %s received end-of-candidates", self.session_id)
             await self._pc.addIceCandidate(None)
             return
 
         ice_candidate = candidate_from_sdp(candidate_value)
         ice_candidate.sdpMid = payload.get("sdpMid")
         ice_candidate.sdpMLineIndex = payload.get("sdpMLineIndex")
+        logger.debug("Session %s applying remote ICE candidate: %s", self.session_id, candidate_value)
         await self._pc.addIceCandidate(ice_candidate)
 
     async def stop(self) -> None:
@@ -168,4 +170,5 @@ class STTSession:
                 "sdpMLineIndex": candidate.sdpMLineIndex,
             }
 
+        logger.debug("Session %s emitting local ICE candidate", self.session_id)
         await events.emit_webrtc_ice(self.websocket, payload)
