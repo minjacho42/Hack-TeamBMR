@@ -84,7 +84,7 @@ def run_real_estate_agent(stt_details: List[Dict[str, Any]], ocr_details: List[D
     segments = _collect_segments(stt_details)
     contract = _collect_contract(ocr_details)
 
-    config = _load_config("crew_config.yml")
+    config = _load_config("crew_config.yaml")
     agents = _build_agents(config)
     tasks = _build_tasks(config, agents)
 
