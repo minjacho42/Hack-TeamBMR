@@ -298,26 +298,6 @@ export function useSttSession(): UseSttSessionResult {
     handleSttError,
   ]);
 
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        stop();
-      }
-    };
-
-    const handleBeforeUnload = () => {
-      stop();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [stop]);
-
   return {
     state,
     error,
