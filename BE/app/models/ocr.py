@@ -16,6 +16,10 @@ class OcrBase(BaseModel):
         default=None,
         description="Associated report identifier, if any.",
     )
+    file_type: Optional[str] = Field(
+        default=None,
+        description="계약서/등기부등본 등 파일 타입",
+    )
     status: str = Field(..., description="Processing status, e.g. queued, processing, done.")
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -39,6 +43,10 @@ class OcrDetailResponse(BaseModel):
     room_id: Optional[str] = Field(
         default=None,
         description="Associated report identifier, if any.",
+    )
+    file_type: Optional[str] = Field(
+        default=None,
+        description="계약서/등기부등본 등 파일 타입",
     )
     status: str = Field(..., description="Processing status, e.g. queued, processing, done.")
     created_at: datetime = Field(..., description="Timestamp when the OCR job was created.")
