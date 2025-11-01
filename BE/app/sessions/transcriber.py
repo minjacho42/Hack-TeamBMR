@@ -72,10 +72,15 @@ class Transcriber:
             pass
 
         logger.debug("Awaiting transcriber task shutdown for session %s", self._session_id)
-        await self._task
-        logger.debug("Transcriber task finished for session %s", self._session_id)
-        append_debug_log(self._settings.logs_dir, f"[{self._session_id}] transcriber stopped")
-        self._task = None
+        try:
+            await self._task
+        except Exception as exc:  # pragma: no cover - diagnostics
+            logger.exception("Transcriber task raised during stop for session %s: %s", self._session_id, exc)
+            append_debug_log(self._settings.logs_dir, f"[{self._session_id}] transcriber stop exception: {exc}")
+        finally:
+            logger.debug("Transcriber task finished for session %s", self._session_id)
+            append_debug_log(self._settings.logs_dir, f"[{self._session_id}] transcriber stopped")
+            self._task = None
 
     async def _run(self) -> None:
         try:
@@ -95,6 +100,7 @@ class Transcriber:
             append_debug_log(self._settings.logs_dir, f"[{self._session_id}] transcriber _run end")
 
     def _streaming_recognize(self) -> None:
+        append_debug_log(self._settings.logs_dir, "streaming_recognize begin")
         if self._settings.google_application_credentials:
             try:
                 credentials = service_account.Credentials.from_service_account_file(
@@ -113,8 +119,11 @@ class Transcriber:
             enable_automatic_punctuation=True,
             use_enhanced=self._settings.stt_use_enhanced,
             model=self._settings.stt_model,
-            enable_speaker_diarization=True,
-            diarization_speaker_count=4,
+            diarization_config=speech.SpeakerDiarizationConfig(
+                enable_speaker_diarization=True,
+                min_speaker_count=2,
+                max_speaker_count=3,
+            )
         )
 
         streaming_config = speech_types.StreamingRecognitionConfig(
@@ -156,7 +165,12 @@ class Transcriber:
             if self._loop is None:
                 break
             future = asyncio.run_coroutine_threadsafe(self._audio_queue.get(), self._loop)
-            chunk = future.result()
+            try:
+                chunk = future.result()
+            except Exception as exc:
+                append_debug_log(self._settings.logs_dir, f"[{self._session_id}] request_generator future exception: {exc}")
+                logger.warning("request_generator future exception for session %s: %s", self._session_id, exc)
+                break
             if chunk is None:
                 append_debug_log(self._settings.logs_dir, f"[{self._session_id}] request_generator received sentinel")
                 break
