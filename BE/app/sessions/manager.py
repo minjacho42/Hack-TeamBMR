@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from fastapi import WebSocket
 
-from app.config import Settings
+from app.core.config import Settings
 from app.sessions.stt_session import STTSession
 
 

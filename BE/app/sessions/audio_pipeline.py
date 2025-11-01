@@ -8,7 +8,7 @@ from typing import Optional
 import av
 from av.audio.resampler import AudioResampler
 
-from app.config import Settings
+from app.core.config import Settings
 from app.noise.ffmpeg_reducer import FFmpegNoiseReducer
 from app.util.analysis_writer import AnalysisWriter
 

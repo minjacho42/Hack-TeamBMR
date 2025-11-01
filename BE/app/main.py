@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
 
-from app.config import get_settings
+from app.core.config import get_settings
 from app.sessions.manager import SessionManager
 from app.sessions.stt_session import STTSession
 

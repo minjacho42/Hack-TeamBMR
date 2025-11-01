@@ -10,7 +10,7 @@ from google.cloud import speech_v1 as speech
 from google.cloud.speech_v1 import types as speech_types
 from google.cloud.speech_v1.types import StreamingRecognizeResponse
 
-from app.config import Settings
+from app.core.config import Settings
 from app.sessions import events
 from app.sessions.diarization import DiarizationProcessor, Segment
 from app.sessions.qa_extractor import QAExtractor

@@ -15,7 +15,7 @@ from aiortc.contrib.media import MediaRelay
 from aiortc.mediastreams import MediaStreamTrack
 from fastapi import WebSocket
 
-from app.config import Settings
+from app.core.config import Settings
 from app.sessions.audio_pipeline import AudioPipeline
 from app.sessions import events
 from app.sessions.transcriber import Transcriber

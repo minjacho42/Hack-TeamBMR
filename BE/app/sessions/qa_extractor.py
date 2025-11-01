@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-from app.config import Settings
+from app.core.config import Settings
 from app.sessions.diarization import Segment
 
 
