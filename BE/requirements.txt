@@ -7,6 +7,7 @@ botocore==1.40.64
 click==8.3.0
 dnspython==2.8.0
 fastapi==0.120.4
+google-cloud-speech==2.27.0
 h11==0.16.0
 idna==3.11
 jmespath==1.0.1

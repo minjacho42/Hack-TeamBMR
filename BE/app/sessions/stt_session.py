@@ -17,6 +17,8 @@ from fastapi import WebSocket
 
 from app.config import Settings
 from app.sessions.audio_pipeline import AudioPipeline
+from app.sessions import events
+from app.sessions.transcriber import Transcriber
 
 
 logger = logging.getLogger(__name__)
@@ -37,12 +39,19 @@ class STTSession:
 
         self._closed = asyncio.Event()
         self._tasks: Set[asyncio.Task[None]] = set()
-        self._audio_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=64)
+        self._audio_queue: asyncio.Queue[Optional[bytes]] = asyncio.Queue(maxsize=64)
         self._audio_pipeline = AudioPipeline(
             session_id=session_id,
             settings=settings,
             output_queue=self._audio_queue,
         )
+        self._transcriber = Transcriber(
+            session_id=session_id,
+            settings=settings,
+            websocket=websocket,
+            audio_queue=self._audio_queue,
+        )
+        self._transcriber_started = False
 
         configuration = RTCConfiguration(iceServers=[RTCIceServer("stun:stun.l.google.com:19302")])
         self._pc = RTCPeerConnection(configuration=configuration)
@@ -90,6 +99,7 @@ class STTSession:
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
 
+        await self._transcriber.stop()
         self._audio_pipeline.close()
         await self._pc.close()
 
@@ -100,7 +110,14 @@ class STTSession:
             except asyncio.QueueEmpty:
                 break
 
-    def get_audio_queue(self) -> asyncio.Queue[bytes]:
+        recording_path = self._audio_pipeline.recording_path
+        if recording_path.exists():
+            await events.emit_recording_url(
+                self.websocket,
+                f"/recordings/{recording_path.name}",
+            )
+
+    def get_audio_queue(self) -> asyncio.Queue[Optional[bytes]]:
         return self._audio_queue
 
     def _on_connection_state_change(self) -> None:
@@ -121,8 +138,19 @@ class STTSession:
         try:
             while not self._closed.is_set():
                 frame = await track.recv()
+                await self._ensure_transcriber_started()
                 await self._audio_pipeline.handle_frame(frame)
         except asyncio.CancelledError:
             pass
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Audio consumption failed for session %s: %s", self.session_id, exc)
+        finally:
+            try:
+                self._audio_queue.put_nowait(None)
+            except asyncio.QueueFull:
+                pass
+
+    async def _ensure_transcriber_started(self) -> None:
+        if not self._transcriber_started:
+            await self._transcriber.start()
+            self._transcriber_started = True

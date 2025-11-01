@@ -21,7 +21,7 @@ class AudioPipeline:
         self,
         session_id: str,
         settings: Settings,
-        output_queue: asyncio.Queue[bytes],
+        output_queue: asyncio.Queue[Optional[bytes]],
     ) -> None:
         self._session_id = session_id
         self._settings = settings
@@ -34,20 +34,34 @@ class AudioPipeline:
         )
         self._noise_reducer = FFmpegNoiseReducer(sample_rate=settings.stt_sample_rate)
 
-        analysis_path = Path(settings.analysis_dir) / f"{session_id}.wav"
-        self._analysis_writer = AnalysisWriter(analysis_path, sample_rate=settings.stt_sample_rate)
+        self._recording_path = Path(settings.storage_dir) / f"{session_id}.wav"
+        self._recording_writer = AnalysisWriter(self._recording_path, sample_rate=settings.stt_sample_rate)
         try:
-            self._analysis_writer.open()
+            self._recording_writer.open()
         except Exception as exc:  # pragma: no cover - best-effort
-            logger.warning("Failed to open analysis writer: %s", exc)
-            self._analysis_writer = None
+            logger.warning("Failed to open recording writer: %s", exc)
+            self._recording_writer = None
+
+        analysis_path = Path(settings.analysis_dir) / f"{session_id}.wav"
+        if analysis_path != self._recording_path:
+            analysis_writer = AnalysisWriter(analysis_path, sample_rate=settings.stt_sample_rate)
+            try:
+                analysis_writer.open()
+            except Exception as exc:  # pragma: no cover - best-effort
+                logger.warning("Failed to open analysis writer: %s", exc)
+                analysis_writer = None
+            self._analysis_writer = analysis_writer
+        else:
+            self._analysis_writer = self._recording_writer
 
     async def handle_frame(self, frame: av.AudioFrame) -> None:
         pcm_chunks = self._to_pcm_bytes(frame)
         for chunk in pcm_chunks:
             reduced = self._noise_reducer.process(chunk)
             await self._push_chunk(reduced)
-            if self._analysis_writer:
+            if self._recording_writer:
+                self._recording_writer.append(reduced)
+            if self._analysis_writer and self._analysis_writer is not self._recording_writer:
                 self._analysis_writer.append(reduced)
 
     def _to_pcm_bytes(self, frame: av.AudioFrame) -> list[bytes]:
@@ -67,5 +81,11 @@ class AudioPipeline:
 
     def close(self) -> None:
         self._noise_reducer.close()
-        if self._analysis_writer:
+        if self._recording_writer:
+            self._recording_writer.close()
+        if self._analysis_writer and self._analysis_writer is not self._recording_writer:
             self._analysis_writer.close()
+
+    @property
+    def recording_path(self) -> Path:
+        return self._recording_path
