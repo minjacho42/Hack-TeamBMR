@@ -206,8 +206,16 @@ export function useSttSession(): UseSttSessionResult {
   }, []);
 
   const handleSessionClose = useCallback(() => {
-    stop();
-  }, [stop]);
+    if (!isActiveRef.current) {
+      return;
+    }
+    isActiveRef.current = false;
+    cleanupResources();
+    setPartial('');
+    setStats(null);
+    sessionIdRef.current = null;
+    setState('idle');
+  }, [cleanupResources]);
 
   const handleSttError = useCallback((payload: SttErrorPayload | GenericErrorPayload) => {
     setError(payload.message);
@@ -292,9 +300,8 @@ export function useSttSession(): UseSttSessionResult {
     const unsubscribes = [
       client.subscribe('session.ready', (payload) => handleSessionReady(payload as SessionReadyPayload)),
       client.subscribe('session.close', () => handleSessionClose()),
-      client.subscribe('stt.webrtc.answer', (payload) => handleRtcAnswer(payload as RtcAnswerPayload)),
+      client.subscribe('rtc.answer', (payload) => handleRtcAnswer(payload as RtcAnswerPayload)),
       client.subscribe('rtc.candidate', (payload) => handleRtcCandidate(payload as RtcCandidatePayload)),
-      client.subscribe('stt.webrtc.ice', (payload) => handleRtcCandidate(payload as RtcCandidatePayload)),
       client.subscribe('stt.partial', (payload) => handlePartial(payload as SttPartialPayload)),
       client.subscribe('stt.final_segments', (payload) => handleFinalSegments(payload as SttFinalSegmentsPayload)),
       client.subscribe('stt.error', (payload) => handleSttError(payload as SttErrorPayload)),

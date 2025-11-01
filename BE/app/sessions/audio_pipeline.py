@@ -26,6 +26,8 @@ class AudioPipeline:
         self._session_id = session_id
         self._settings = settings
         self._output_queue = output_queue
+        self._bytes_sent = 0
+        self._chunks_sent = 0
 
         self._resampler = AudioResampler(
             format="s16",
@@ -81,6 +83,8 @@ class AudioPipeline:
     async def _push_chunk(self, chunk: bytes) -> None:
         try:
             self._output_queue.put_nowait(chunk)
+            self._bytes_sent += len(chunk)
+            self._chunks_sent += 1
         except asyncio.QueueFull:
             logger.debug("Audio queue full. Dropping chunk.")
 
@@ -94,3 +98,9 @@ class AudioPipeline:
     @property
     def recording_path(self) -> Path:
         return self._recording_path
+
+    def get_stats(self) -> dict[str, int]:
+        return {
+            "bytes": self._bytes_sent,
+            "chunks": self._chunks_sent,
+        }

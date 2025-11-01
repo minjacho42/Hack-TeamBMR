@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Iterable, Optional
+from typing import Iterable, Optional, TYPE_CHECKING
 
 from google.api_core import exceptions as google_exceptions
 from google.cloud import speech_v1 as speech
@@ -15,7 +15,9 @@ from google.oauth2 import service_account
 from app.core.config import Settings
 from app.sessions import events
 from app.sessions.diarization import DiarizationProcessor, Segment
-from app.sessions.qa_extractor import QAExtractor
+
+if TYPE_CHECKING:
+    from app.sessions.audio_pipeline import AudioPipeline
 
 
 logger = logging.getLogger(__name__)
@@ -28,11 +30,13 @@ class Transcriber:
         settings: Settings,
         websocket,
         audio_queue: asyncio.Queue[Optional[bytes]],
+        audio_pipeline: 'AudioPipeline' | None = None,
     ) -> None:
         self._session_id = session_id
         self._settings = settings
         self._websocket = websocket
         self._audio_queue = audio_queue
+        self._audio_pipeline = audio_pipeline
 
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._task: Optional[asyncio.Task[None]] = None
@@ -43,7 +47,6 @@ class Transcriber:
         self._started_at: float = 0.0
 
         self._diarizer = DiarizationProcessor(settings.logs_dir)
-        self._qa_extractor = QAExtractor(settings)
 
     async def start(self) -> None:
         if self._task is not None:
@@ -125,11 +128,12 @@ class Transcriber:
                 )
         finally:
             duration = max(time.monotonic() - self._started_at, 0.0)
-            if self._loop:
-                asyncio.run_coroutine_threadsafe(
-                    events.emit_done(self._websocket, self._final_count, duration),
-                    self._loop,
-                )
+            logger.debug(
+                "Transcriber streaming finished for session %s after %.2fs (finals=%d)",
+                self._session_id,
+                duration,
+                self._final_count,
+            )
 
     def _request_generator(self, streaming_config: speech_types.StreamingRecognitionConfig):
         yield speech_types.StreamingRecognizeRequest(streaming_config=streaming_config)
@@ -176,12 +180,6 @@ class Transcriber:
                     ),
                     self._loop,
                 )
-                qa_pairs = self._qa_extractor.append_segments(diarized)
-                if qa_pairs:
-                    asyncio.run_coroutine_threadsafe(
-                        events.emit_qa(self._websocket, qa_pairs),
-                        self._loop,
-                    )
             else:
                 asyncio.run_coroutine_threadsafe(
                     events.emit_final_segments(
@@ -201,13 +199,18 @@ class Transcriber:
             self._final_count += 1
 
             if self._loop:
+                stats = {
+                    "partials": self._partial_count,
+                    "finals": self._final_count,
+                    "bytes": 0,
+                    "chunks": 0,
+                }
+                if self._audio_pipeline:
+                    pipeline_stats = self._audio_pipeline.get_stats()
+                    stats["bytes"] = pipeline_stats.get("bytes", 0)
+                    stats["chunks"] = pipeline_stats.get("chunks", 0)
+
                 asyncio.run_coroutine_threadsafe(
-                    events.emit_stats(
-                        self._websocket,
-                        {
-                            "partials": self._partial_count,
-                            "finals": self._final_count,
-                        },
-                    ),
+                    events.emit_stats(self._websocket, stats),
                     self._loop,
                 )

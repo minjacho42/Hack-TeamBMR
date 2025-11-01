@@ -9,7 +9,6 @@ from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
 
 from app.core.config import get_settings
-from app.sessions import events
 from app.sessions.manager import SessionManager
 from app.sessions.stt_session import STTSession
 
@@ -57,7 +56,7 @@ async def _ensure_session(session: Optional[STTSession], websocket: WebSocket) -
     if session is None:
         await websocket.send_json(
             {
-                "event": "stt.error",
+                "event": "error",
                 "data": {
                     "code": "SESSION_NOT_INITIALIZED",
                     "message": "rtc.offer 이벤트 이후에만 사용할 수 있습니다.",
@@ -82,7 +81,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             except json.JSONDecodeError:
                 await websocket.send_json(
                     {
-                        "event": "stt.error",
+                        "event": "error",
                         "data": {
                             "code": "INVALID_PAYLOAD",
                             "message": "JSON 포맷의 메시지만 허용됩니다.",
@@ -116,7 +115,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 except ValueError as exc:
                     await websocket.send_json(
                         {
-                            "event": "stt.error",
+                            "event": "error",
                             "data": {
                                 "code": "INVALID_OFFER",
                                 "message": str(exc),
@@ -125,10 +124,15 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     )
                 else:
                     logger.debug("Sending rtc.answer for session %s", session.session_id)
+                    answer_payload = {
+                        "sdp": answer["sdp"],
+                        "type": answer["type"],
+                        "reportid": session.session_id,
+                    }
                     await websocket.send_json(
                         {
-                            "event": "stt.webrtc.answer",
-                            "data": answer,
+                            "event": "rtc.answer",
+                            "data": answer_payload,
                         },
                     )
             elif event == "rtc.candidate":
@@ -142,7 +146,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 if session_id:
                     logger.info("Session %s closed by client", session_id)
                     await session_manager.remove(session_id)
-                    await events.emit_session_close(websocket, data.get("reason", "client request"))
                     session = None
                     session_id = None
             elif event == "rtc.stop":
@@ -152,27 +155,19 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     session = None
                     session_id = None
             elif event == "rtc.start":
-                try:
-                    session_ref = await _ensure_session(session, websocket)
-                except RuntimeError:
-                    continue
-                await websocket.send_json(
-                    {
-                        "event": "stt.webrtc.start",
-                        "data": {"session_id": session_ref.session_id},
-                    },
-                )
+                # optional start notification; no server response required by spec
+                await _ensure_session(session, websocket)
             else:
                 await websocket.send_json(
                     {
-                        "event": "stt.error",
+                        "event": "error",
                         "data": {
                             "code": "UNKNOWN_EVENT",
                             "message": f"지원하지 않는 이벤트입니다: {event}",
                         },
                     },
                 )
-except WebSocketDisconnect:
+    except WebSocketDisconnect:
         logger.info("WebSocket disconnected for session %s", session_id)
     finally:
         if session_id:

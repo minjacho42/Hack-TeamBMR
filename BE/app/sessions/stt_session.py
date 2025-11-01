@@ -13,7 +13,7 @@ from aiortc import (
 )
 from aiortc.contrib.media import MediaRelay
 from aiortc.mediastreams import MediaStreamTrack
-from aiortc.rtcicetransport import Candidate, candidate_from_sdp, candidate_to_sdp
+from aiortc.rtcicetransport import candidate_from_sdp, candidate_to_sdp
 from fastapi import WebSocket
 
 from app.core.config import Settings
@@ -51,6 +51,7 @@ class STTSession:
             settings=settings,
             websocket=websocket,
             audio_queue=self._audio_queue,
+            audio_pipeline=self._audio_pipeline,
         )
         self._transcriber_started = False
 
@@ -88,7 +89,6 @@ class STTSession:
 
         local = self._pc.localDescription
         return {
-            "session_id": self.session_id,
             "sdp": local.sdp,
             "type": local.type,
         }
@@ -166,13 +166,6 @@ class STTSession:
             except asyncio.QueueEmpty:
                 break
 
-        recording_path = self._audio_pipeline.recording_path
-        if recording_path.exists():
-            await events.emit_recording_url(
-                self.websocket,
-                f"/recordings/{recording_path.name}",
-            )
-
         await events.emit_session_close(self.websocket, "session stopped")
 
     def get_audio_queue(self) -> asyncio.Queue[Optional[bytes]]:
@@ -217,10 +210,9 @@ class STTSession:
 
     async def _on_icecandidate(self, candidate: Optional[RTCIceCandidate]) -> None:
         if candidate is None:
-            payload: Dict[str, Any] = {"session_id": self.session_id, "candidate": None}
+            payload: Dict[str, Any] = {"candidate": None}
         else:
             payload = {
-                "session_id": self.session_id,
                 "candidate": candidate_to_sdp(candidate),
                 "sdpMid": candidate.sdpMid,
                 "sdpMLineIndex": candidate.sdpMLineIndex,
