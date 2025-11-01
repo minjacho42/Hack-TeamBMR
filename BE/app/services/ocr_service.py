@@ -26,7 +26,7 @@ class OcrService:
         content_type: Optional[str],
     ) -> OcrUploadResponse:
         # safe_report_id = report_id or "unassigned"
-        # safe_file_type = file_type or "generic"
+        safe_file_type = file_type or "unknown"
         file_stem = Path(filename).stem or f"upload-{uuid4().hex[:8]}"
         ocr_id = file_stem
         object_key = f"ocr/{user_id}/{filename}"
@@ -41,6 +41,7 @@ class OcrService:
             ocr_id=ocr_id,
             user_id=user_id,
             room_id=room_id,
+            file_type=safe_file_type,
             status="done",
             detail=await ocr_usecase.process(object_key),  # 추후 합치면 제공될 예정!
             object_key=object_key,
@@ -71,6 +72,7 @@ class OcrService:
                     ocr_id=record.ocr_id or "",
                     user_id=record.user_id,
                     room_id=record.room_id,
+                    file_type=record.file_type,
                     status=record.status,
                     created_at=record.created_at,
                     detail=record.detail,
