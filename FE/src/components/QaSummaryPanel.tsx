@@ -17,9 +17,9 @@ export function QaSummaryPanel({
     <div className="panel qa-panel">
       <h3>질문 · 답변 요약</h3>
       <div className="qa-list">
-        {pairs.map((pair, index) => (
+        {pairs.map((pair) => (
           <div
-            key={`${pair.q_text}-${pair.a_time}-${index}`}
+            key={`${pair.q_text}-${pair.a_time}`}
             className="qa-item"
           >
             <div className="qa-question">
