@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
 
+from app.api import v1_router
 from app.core.config import get_settings
 from app.sessions.manager import SessionManager
 from app.sessions.stt_session import STTSession
@@ -50,6 +51,8 @@ app.mount(
 @app.get("/health", tags=["health"])
 async def health_check() -> JSONResponse:
     return JSONResponse({"status": "ok"})
+
+app.include_router(v1_router)
 
 
 async def _ensure_session(session: Optional[STTSession], websocket: WebSocket) -> STTSession:
