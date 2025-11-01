@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Iterable
 
 from app.models import QAPair, TranscriptSegment
-from app.services import STTService, get_stt_service
+from app.services.stt_service import STTService, get_stt_service
 
 
 class STTSessionResultUseCase:
