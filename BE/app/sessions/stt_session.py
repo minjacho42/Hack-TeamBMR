@@ -95,13 +95,13 @@ class STTSession:
 
     async def add_ice_candidate(self, payload: Dict[str, Any]) -> None:
         if not payload:
-            await self._pc.addIceCandidate(None)
             return
+        
         
         candidate_sdp = payload.get("candidate")
         if not candidate_sdp:
-            await self._pc.addIceCandidate(None)
             return
+        
         
         parsed_candidate = Candidate.from_sdp(candidate_sdp)
         rtc_candidate = RTCIceCandidate(
