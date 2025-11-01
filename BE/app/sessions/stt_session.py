@@ -8,11 +8,12 @@ from aiortc import (
     RTCConfiguration,
     RTCPeerConnection,
     RTCSessionDescription,
+    RTCIceCandidate,
     RTCIceServer,
 )
 from aiortc.contrib.media import MediaRelay
 from aiortc.mediastreams import MediaStreamTrack
-from aiortc.rtcicecandidate import candidate_from_sdp, candidate_to_sdp
+from aiortc.rtcicetransport import Candidate
 from fastapi import WebSocket
 
 from app.core.config import Settings
@@ -55,6 +56,7 @@ class STTSession:
 
         configuration = RTCConfiguration(iceServers=[RTCIceServer("stun:stun.l.google.com:19302")])
         self._pc = RTCPeerConnection(configuration=configuration)
+        self._pc.addTransceiver("audio", direction="recvonly")
         self._pc.on("connectionstatechange")(self._on_connection_state_change)
         self._pc.on("track")(self._on_track)
         self._pc.on("icecandidate")(self._on_icecandidate)
@@ -77,17 +79,31 @@ class STTSession:
         }
 
     async def add_ice_candidate(self, payload: Dict[str, Any]) -> None:
-        candidate_value = payload.get("candidate") if payload else None
-        if candidate_value in (None, ""):
-            logger.debug("Session %s received end-of-candidates", self.session_id)
+        if not payload:
             await self._pc.addIceCandidate(None)
             return
-
-        ice_candidate = candidate_from_sdp(candidate_value)
-        ice_candidate.sdpMid = payload.get("sdpMid")
-        ice_candidate.sdpMLineIndex = payload.get("sdpMLineIndex")
-        logger.debug("Session %s applying remote ICE candidate: %s", self.session_id, candidate_value)
-        await self._pc.addIceCandidate(ice_candidate)
+        
+        candidate_sdp = payload.get("candidate")
+        if not candidate_sdp:
+            await self._pc.addIceCandidate(None)
+            return
+        
+        parsed_candidate = Candidate.from_sdp(candidate_sdp)
+        rtc_candidate = RTCIceCandidate(
+            component=parsed_candidate.component,
+            foundation=parsed_candidate.foundation,
+            ip=parsed_candidate.host,
+            port=parsed_candidate.port,
+            priority=parsed_candidate.priority,
+            protocol=parsed_candidate.transport,
+            type=parsed_candidate.type,
+            relatedAddress=parsed_candidate.related_address,
+            relatedPort=parsed_candidate.related_port,
+            tcpType=parsed_candidate.tcptype,
+            sdpMid=payload.get("sdpMid"),
+            sdpMLineIndex=payload.get("sdpMLineIndex"),
+        )
+        await self._pc.addIceCandidate(rtc_candidate)
 
     async def stop(self) -> None:
         if self._closed.is_set():
