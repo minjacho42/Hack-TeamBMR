@@ -13,7 +13,7 @@ from aiortc import (
 )
 from aiortc.contrib.media import MediaRelay
 from aiortc.mediastreams import MediaStreamTrack
-from aiortc.rtcicetransport import Candidate
+from aiortc.rtcicetransport import Candidate, candidate_from_sdp, candidate_to_sdp
 from fastapi import WebSocket
 
 from app.core.config import Settings
@@ -103,7 +103,7 @@ class STTSession:
             await self._pc.addIceCandidate(None)
             return
         
-        parsed_candidate = Candidate.from_sdp(candidate_sdp)
+        parsed_candidate = candidate_from_sdp(candidate_sdp)
         rtc_candidate = RTCIceCandidate(
             component=parsed_candidate.component,
             foundation=parsed_candidate.foundation,
