@@ -10,10 +10,13 @@ from app.use_cases.llm.crew_pipeline import run_real_estate_agent
 
 
 class LLMUsecase:
-    async def process(self, stt_details: List[Dict[str, Any]], ocr_details: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def process(self, stt_details: List[Dict[str, Any]], ocr_details: List[Dict[str, Any]], checklist_details: List[Dict[str, Any]]) -> Dict[str, Any]:
         segments = self._extract_conversation_segments(stt_details, ocr_details)
         contract = self._extract_contract_json(ocr_details)
+        checking = self._extract_contract_json(checklist_details)
 
+
+        checklist_payload: List[Dict[str, Any]] = checking
         stt_payload: List[Dict[str, Any]] = segments
         ocr_payload = self._build_ocr_payload(ocr_details, contract)
 
@@ -21,6 +24,7 @@ class LLMUsecase:
             run_real_estate_agent,
             stt_payload,
             ocr_payload,
+            checklist_payload
         )
 
         if isinstance(result, dict):
