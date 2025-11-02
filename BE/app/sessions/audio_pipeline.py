@@ -32,11 +32,13 @@ class AudioPipeline:
             layout="mono",
             rate=settings.stt_sample_rate,
         )
-        try:
-            self._noise_reducer = FFmpegNoiseReducer(sample_rate=settings.stt_sample_rate)
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("Noise reducer initialization failed: %s", exc)
-            self._noise_reducer = None
+
+        self._noise_reducer = None
+        # try:
+        #     self._noise_reducer = FFmpegNoiseReducer(sample_rate=settings.stt_sample_rate)
+        # except Exception as exc:  # pragma: no cover - defensive
+        #     logger.warning("Noise reducer initialization failed: %s", exc)
+        #     self._noise_reducer = None
 
         self._logs_dir = settings.logs_dir
         self._recording_path = Path(settings.storage_dir) / f"{session_id}.wav"

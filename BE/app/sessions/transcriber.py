@@ -15,7 +15,7 @@ from google.oauth2 import service_account
 from app.core.config import Settings
 from app.models import QAPair, TranscriptSegment
 from app.sessions import events
-from app.sessions.diarization import Segment
+from app.sessions.diarization import DiarizationProcessor, Segment
 from app.sessions.qa_extractor import QAExtractor
 from app.use_cases import get_stt_use_case
 
@@ -53,9 +53,9 @@ class Transcriber:
         self._qa_pairs: list[QAPair] = []
         self._qa_pair_keys: set[str] = set()
         self._transcript_segments: list[TranscriptSegment] = []
-        self._segment_keys: set[str] = set()
         self._last_final_transcript: str = ""
         self._room_id: Optional[str] = None
+        self._diarizer = DiarizationProcessor(settings.logs_dir)
 
     async def start(self) -> None:
         if self._task is not None:
@@ -68,8 +68,8 @@ class Transcriber:
         self._qa_pairs = []
         self._qa_pair_keys = set()
         self._transcript_segments = []
-        self._segment_keys = set()
         self._last_final_transcript = ""
+        self._diarizer.reset()
         self._task = asyncio.create_task(self._run())
         logger.debug("Transcriber started for session %s", self._session_id)
 
@@ -215,25 +215,42 @@ class Transcriber:
                     )
                 continue
 
+            last_partial = self._partial_text
             self._partial_text = ""
-            new_text = self._extract_new_text(transcript)
-            if not new_text:
-                continue
+            segments: list[Segment] = self._diarizer.build_segments(result)
+            partial_diff = self._extract_new_text(last_partial) if last_partial else ""
 
-            segment = self._build_segment(result, new_text)
-            if segment is None:
+            if not segments:
+                candidate_text = self._extract_new_text(transcript)
+                if not candidate_text:
+                    continue
+                fallback = self._build_segment(result, candidate_text)
+                if fallback:
+                    segments = [fallback]
+            elif partial_diff:
+                merged = self._merge_punctuation_into_segments(segments, partial_diff)
+                if merged is None:
+                    fallback = self._build_segment(result, partial_diff)
+                    if fallback:
+                        segments = [fallback]
+                else:
+                    segments = merged
+
+            if not segments:
                 continue
 
             asyncio.run_coroutine_threadsafe(
                 events.emit_final_segments(
                     self._websocket,
-                    [segment.to_dict()],
+                    [segment.to_dict() for segment in segments],
                 ),
                 self._loop,
             )
-            self._append_transcript_segment(segment)
 
-            qa_payloads = self._qa_extractor.append_segments([segment])
+            for segment in segments:
+                self._append_transcript_segment(segment)
+
+            qa_payloads = self._qa_extractor.append_segments(segments)
             new_pairs = self._register_qa_pairs(qa_payloads)
             if new_pairs:
                 asyncio.run_coroutine_threadsafe(
@@ -297,9 +314,6 @@ class Transcriber:
             segment.end,
             segment.text,
         )
-        if transcript_segment.segment_key in self._segment_keys:
-            return
-        self._segment_keys.add(transcript_segment.segment_key)
         self._transcript_segments.append(transcript_segment)
 
     def _register_qa_pairs(self, pairs: Iterable[dict]) -> list[QAPair]:
@@ -313,6 +327,87 @@ class Transcriber:
             self._qa_pairs.append(pair)
             new_pairs.append(pair)
         return new_pairs
+
+    @staticmethod
+    def _is_punctuation_char(ch: str) -> bool:
+        if not ch:
+            return False
+        if ch.isspace() or ch.isalnum():
+            return False
+        code = ord(ch)
+        if 0xAC00 <= code <= 0xD7A3:  # Hangul syllables
+            return False
+        return True
+
+    @classmethod
+    def _count_non_punctuation(cls, text: str) -> int:
+        return sum(1 for ch in text if not cls._is_punctuation_char(ch))
+
+    @classmethod
+    def _count_punctuation(cls, text: str) -> int:
+        return sum(1 for ch in text if cls._is_punctuation_char(ch))
+
+    @classmethod
+    def _merge_punctuation_into_segments(cls, segments: list[Segment], enriched_text: str) -> list[Segment] | None:
+        if not segments or not enriched_text:
+            return segments
+
+        segment_punct = cls._count_punctuation("".join(segment.text for segment in segments))
+        enriched_punct = cls._count_punctuation(enriched_text)
+        if enriched_punct <= segment_punct:
+            return segments
+
+        total_non_punct_segments = sum(cls._count_non_punctuation(segment.text) for segment in segments)
+        total_non_punct_enriched = cls._count_non_punctuation(enriched_text)
+        if not total_non_punct_segments or total_non_punct_segments != total_non_punct_enriched:
+            return None
+
+        pointer = 0
+        length = len(enriched_text)
+        updated_segments: list[Segment] = []
+
+        for segment in segments:
+            required = cls._count_non_punctuation(segment.text)
+            collected = 0
+            buffer: list[str] = []
+
+            while pointer < length and collected < required:
+                char = enriched_text[pointer]
+                buffer.append(char)
+                if not cls._is_punctuation_char(char):
+                    collected += 1
+                pointer += 1
+
+            if collected < required:
+                return None
+
+            while pointer < length and cls._is_punctuation_char(enriched_text[pointer]):
+                buffer.append(enriched_text[pointer])
+                pointer += 1
+
+            updated_segments.append(
+                Segment(
+                    speaker=segment.speaker,
+                    text="".join(buffer).strip(),
+                    start=segment.start,
+                    end=segment.end,
+                ),
+            )
+
+        # Append trailing whitespace (if any) to the last segment when safe
+        if pointer < length:
+            remainder = enriched_text[pointer:]
+            if remainder.strip():
+                return None
+            if updated_segments:
+                updated_segments[-1] = Segment(
+                    speaker=updated_segments[-1].speaker,
+                    text=(updated_segments[-1].text + remainder).strip(),
+                    start=updated_segments[-1].start,
+                    end=updated_segments[-1].end,
+                )
+
+        return updated_segments
 
     async def _persist_results(self) -> None:
         if not self._room_id:

@@ -31,10 +31,11 @@ export function ChecklistPanel() {
     setError(null);
     try {
       const data = await fetchChecklistTemplates({ locale, category });
-      setTemplates(data);
+      const list = Array.isArray(data) ? data : [];
+      setTemplates(list);
       const defaults: Record<string, ItemState> = {};
-      data.forEach((template) => {
-        template.items.forEach((item) => {
+      list.forEach((template) => {
+        (template.items ?? []).forEach((item) => {
           defaults[item.id] = { checked: false, memo: '' };
         });
       });

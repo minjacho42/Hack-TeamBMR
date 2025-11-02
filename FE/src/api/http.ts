@@ -88,6 +88,7 @@ export async function api(path: string, options: ApiOptions = {}): Promise<Respo
     method: method ?? (body ? 'POST' : 'GET'),
     headers,
     body,
+    credentials: 'include',
     ...rest,
   };
 
