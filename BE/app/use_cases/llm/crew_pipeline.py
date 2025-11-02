@@ -78,11 +78,45 @@ def _collect_contract(details: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
             contract[key] = value
     return contract
 
+def _collect_contract(details: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    contract: Dict[str, Any] = {}
+    for detail in details or []:
+        if not isinstance(detail, dict):
+            continue
+
+        candidate = None
+        for key in ("contract_json", "contract", "payload", "data"):
+            value = detail.get(key)
+            if isinstance(value, dict):
+                candidate = value
+                break
+            if isinstance(value, str):
+                try:
+                    decoded = json.loads(value)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(decoded, dict):
+                    candidate = decoded
+                    break
+
+        if candidate is None and "title" in detail and "properties" in detail:
+            candidate = detail
+
+        if not isinstance(candidate, dict):
+            continue
+
+        for key, value in candidate.items():
+            if value in (None, "", [], {}):
+                continue
+            contract[key] = value
+    return contract
+
 
 # ---- Crew 실행 ----
-def run_real_estate_agent(stt_details: List[Dict[str, Any]], ocr_details: List[Dict[str, Any]]) -> Any:
+def run_real_estate_agent(stt_details: List[Dict[str, Any]], ocr_details: List[Dict[str, Any]], checklist_details: List[Dict[str, Any]]) -> Any:
     segments = _collect_segments(stt_details)
     contract = _collect_contract(ocr_details)
+    checking = _collect_contract(checklist_details)
 
     config = _load_config("crew_config.yml")
     agents = _build_agents(config)
@@ -100,6 +134,7 @@ def run_real_estate_agent(stt_details: List[Dict[str, Any]], ocr_details: List[D
     inputs = {
         "conversation_segments": json.dumps(segments, ensure_ascii=False),
         "contract_json": json.dumps(contract, ensure_ascii=False),
+        "checking_json": json.dumps()
     }
 
     result = crew.kickoff(inputs=inputs)
