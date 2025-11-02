@@ -5,7 +5,7 @@ import { fetchAuthToken } from '../api/auth';
 import { api } from '../api/http';
 import { getRealtimeClient } from '../realtime/ws';
 
-type UploadType = 'lease_contract' | 'property_registry';
+type UploadType = '주택임대차표준계약서' | '등기사항전부증명서' | '중개대상물확인설명서';
 
 export function DocumentUploadScreen() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -52,7 +52,13 @@ export function DocumentUploadScreen() {
         method: 'POST',
         body: form,
       });
-      setToast(type === 'lease_contract' ? '임대차계약서를 업로드했습니다.' : '등기부등본을 업로드했습니다.');
+      if (type === '주택임대차표준계약서') {
+        setToast('임대차계약서를 업로드했습니다.');
+      } else if (type === '등기사항전부증명서') {
+        setToast('등기부등본을 업로드했습니다.');
+      } else {
+        setToast('중개대상물확인설명서를 업로드했습니다.');
+      }
     } catch (uploadError) {
       const message = uploadError instanceof Error ? uploadError.message : '업로드에 실패했습니다.';
       setError(message);
@@ -149,11 +155,11 @@ export function DocumentUploadScreen() {
         <main className="doc-content">
           <section className="doc-upload-group">
             <h2>임대차계약서 업로드</h2>
-            <label className={`doc-upload-box${uploadingType === 'lease_contract' ? ' uploading' : ''}`}>
+            <label className={`doc-upload-box${uploadingType === '주택임대차표준계약서' ? ' uploading' : ''}`}>
               <input
                 type="file"
                 accept="application/pdf"
-                onChange={handleFileChange('lease_contract')}
+                onChange={handleFileChange('주택임대차표준계약서')}
                 disabled={uploadingType !== null}
               />
               <span className="doc-upload-icon" aria-hidden>
@@ -169,11 +175,31 @@ export function DocumentUploadScreen() {
 
           <section className="doc-upload-group">
             <h2>등기부등본 업로드</h2>
-            <label className={`doc-upload-box${uploadingType === 'property_registry' ? ' uploading' : ''}`}>
+            <label className={`doc-upload-box${uploadingType === '등기사항전부증명서' ? ' uploading' : ''}`}>
               <input
                 type="file"
                 accept="application/pdf"
-                onChange={handleFileChange('property_registry')}
+                onChange={handleFileChange('등기사항전부증명서')}
+                disabled={uploadingType !== null}
+              />
+              <span className="doc-upload-icon" aria-hidden>
+                <svg width="26" height="24" viewBox="0 0 26 24" fill="none">
+                  <path d="M13 1v15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M6 8l7-7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M4 15v6h18v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </span>
+              <span className="doc-upload-text">파일 업로드 (pdf)</span>
+            </label>
+          </section>
+
+          <section className="doc-upload-group">
+            <h2>중개대상물 확인설명서 업로드</h2>
+            <label className={`doc-upload-box${uploadingType === '중개대상물확인설명서' ? ' uploading' : ''}`}>
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={handleFileChange('중개대상물확인설명서')}
                 disabled={uploadingType !== null}
               />
               <span className="doc-upload-icon" aria-hidden>
