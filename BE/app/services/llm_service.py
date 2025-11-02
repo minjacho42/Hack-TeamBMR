@@ -48,8 +48,9 @@ class LlmService:
         ocr_service = get_ocr_service()
         room_service = get_room_service()
 
-        stt_details: List[Dict[str, Any]] = []
+        stt_details: List[Dict[str, Any]] = 
         ocr_details: List[Dict[str, Any]] = await ocr_service.list_details(user_id, room_id)
+        room_checklist: List[Dict[str, Any]] = await room_service.get_room_checklist(user_id, room_id)
 
         # MVP fallback: synthesise a completed report when not found.
         report = LLMReportDetail(
@@ -57,7 +58,7 @@ class LlmService:
             user_id=user_id,
             status="done",
             created_at=datetime.now(UTC),
-            detail=await llm_usecase.process(stt_details, ocr_details),
+            detail=await llm_usecase.process(stt_details, ocr_details, room_checklist),
         )
         return report
 
