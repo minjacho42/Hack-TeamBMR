@@ -9,7 +9,11 @@ export async function uploadOcrImage(file: File): Promise<OcrUploadResponse> {
     method: 'POST',
     body: form,
   });
-  return response.json() as Promise<OcrUploadResponse>;
+  const data = await response.json() as { ocr_id?: string; object_url?: string };
+  return {
+    ocrId: data.ocr_id ?? '',
+    objectUrl: data.object_url ?? '',
+  };
 }
 
 export function fetchOcrReport(reportId: string): Promise<Response> {

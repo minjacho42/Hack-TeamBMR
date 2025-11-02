@@ -17,6 +17,12 @@ export interface ChecklistTemplatesResponse {
   templates: ChecklistTemplate[];
 }
 
+export type ChecklistMapEntry = Record<string, string | boolean | null>;
+
+export interface ChecklistResponseV2 {
+  items: ChecklistMapEntry[];
+}
+
 export interface ChecklistCheck {
   itemId: string;
   checked: boolean;
@@ -30,33 +36,36 @@ export interface SaveChecklistPayload {
 export interface RoomPhoto {
   photoId: string;
   objectUrl: string;
-  uploadedAt: string;
+  createdAt: string;
 }
 
 export interface Room {
-  id: string;
-  title: string;
-  category: string;
-  price: number; // 금액 단위: 만원
-  description?: string;
-  address?: string;
+  roomId: string;
+  address: string;
+  type: string;
+  floor: number;
+  deposit: number;
+  rentMonthly: number;
+  feeIncluded: boolean;
+  feeMgmt?: number;
   createdAt: string;
-  updatedAt?: string;
-  audioUrl?: string;
-  photos?: RoomPhoto[];
+  photos: RoomPhoto[];
+  checklist?: RoomChecklist;
 }
 
 export interface CreateRoomPayload {
-  title: string;
-  category: string;
-  price: number;
-  description?: string;
-  address?: string;
+  address: string;
+  type: string;
+  floor: number;
+  deposit: number;
+  rent_monthly: number;
+  fee_included: boolean;
+  fee_mgmt?: number;
+  checklist: RoomChecklist;
 }
 
-export interface RoomsListResponse {
-  items: Room[];
-  nextPageToken?: string;
+export interface RoomChecklist {
+  items: ChecklistMapEntry[];
 }
 
 export interface OcrUploadResponse {
@@ -83,12 +92,17 @@ export interface OcrReport {
 export type LlmStage = 'queued' | 'processing' | 'done' | 'failed';
 
 export interface LlmReport {
-  reportId: string;
+  roomId: string;
+  reportId?: string;
+  userId?: string;
   status: LlmStage;
   summary?: string;
   highlights?: string[];
   recommendations?: string[];
   createdAt: string;
+  cautions?: LlmReportItem[];
+  positives?: LlmReportItem[];
+  glossary?: LlmReportGlossaryItem[];
 }
 
 export interface SttBubble {
@@ -97,4 +111,20 @@ export interface SttBubble {
   text: string;
   startedAt?: number;
   endedAt?: number;
+}
+
+export type LlmReportSeverity = 'high' | 'medium' | 'low' | 'info';
+
+export interface LlmReportItem {
+  id?: string;
+  title: string;
+  description?: string;
+  detail?: string;
+  severity?: LlmReportSeverity;
+}
+
+export interface LlmReportGlossaryItem {
+  id?: string;
+  term: string;
+  description: string;
 }
