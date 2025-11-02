@@ -1,136 +1,31 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
-import { fetchAuthToken } from './api/auth';
-import { RecorderControls } from './components/RecorderControls';
-import { TranscriptDisplay } from './components/TranscriptDisplay';
-import { QaSummaryPanel } from './components/QaSummaryPanel';
-import { RoomsPanel } from './components/RoomsPanel';
-import { ChecklistPanel } from './components/ChecklistPanel';
-import { OcrPanel } from './components/OcrPanel';
-import { LlmReportPanel } from './components/LlmReportPanel';
-import { useSttSession } from './realtime/useSttSession';
+import { Navigate, Route, Routes, BrowserRouter } from 'react-router-dom';
+import { SplashScreen } from './components/SplashScreen';
+import { MainScreen } from './components/MainScreen';
+import { AddRoomScreen } from './components/AddRoomScreen';
+import { RoomChecklistScreen } from './components/RoomChecklistScreen';
+import { RoomCreationSuccessScreen } from './components/RoomCreationSuccessScreen';
+import { RoomDetailScreen } from './components/RoomDetailScreen';
+import { RoomMonitoringScreen } from './components/RoomMonitoringScreen';
+import { DocumentUploadScreen } from './components/DocumentUploadScreen';
+import { LlmReportScreen } from './components/LlmReportScreen';
 
 function App() {
-  const {
-    state,
-    error,
-    partial,
-    bubbles,
-    qaPairs,
-    stats,
-    start,
-    stop,
-  } = useSttSession();
-  const [toast, setToast] = useState<string | null>(null);
-  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
-  const initializedRef = useRef(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    const existingToken = window.localStorage.getItem('token');
-    if (!existingToken) {
-      fetchAuthToken();
-    }
-  }, []);
-
-  const handleStart = useCallback(async () => {
-    try {
-      await start(activeRoomId ?? undefined);
-    } catch (startError) {
-      const message = startError instanceof Error ? startError.message : '녹음을 시작할 수 없습니다.';
-      setToast(message);
-    }
-  }, [activeRoomId, start]);
-
-  useEffect(() => {
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      return;
-    }
-
-    if (state === 'recording') {
-      setToast('녹음을 시작했습니다.');
-    } else if (state === 'idle') {
-      setToast('녹음을 종료했습니다.');
-    }
-  }, [state]);
-
-  useEffect(() => {
-    if (!toast) {
-      return;
-    }
-    const timer = window.setTimeout(() => setToast(null), 2_000);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
-
   return (
-    <div className="app-shell">
-      <header>
-        <h1>실시간 음성 회의 도우미</h1>
-        <p>STT, 방 관리, 체크리스트, OCR, LLM 리포트를 한곳에서 확인하세요.</p>
-      </header>
-
-      {toast ? <div className="global-toast">{toast}</div> : null}
-
-      <main>
-        <section className="grid two-columns">
-          <div className="column stt-column">
-            <RecorderControls
-              state={state}
-              error={error}
-              onStart={handleStart}
-              onStop={stop}
-            />
-            <TranscriptDisplay
-              bubbles={bubbles}
-              partial={partial}
-            />
-            <QaSummaryPanel
-              pairs={qaPairs}
-              visible={state === 'idle'}
-            />
-            {stats ? (
-              <div className="panel stats-panel">
-                <h3>세션 통계</h3>
-                <div className="stats-grid">
-                  <div>
-                    <span className="label">전송 바이트</span>
-                    <span>{stats.bytes.toLocaleString('ko-KR')}</span>
-                  </div>
-                  <div>
-                    <span className="label">청크 수</span>
-                    <span>{stats.chunks}</span>
-                  </div>
-                  <div>
-                    <span className="label">부분 인식</span>
-                    <span>{stats.partials}</span>
-                  </div>
-                  <div>
-                    <span className="label">최종 문장</span>
-                    <span>{stats.finals}</span>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-          <div className="column">
-            <RoomsPanel onSelectionChange={setActiveRoomId} />
-          </div>
-        </section>
-
-        <section className="grid three-columns">
-          <ChecklistPanel />
-          <OcrPanel />
-          <LlmReportPanel />
-        </section>
-      </main>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<SplashScreen />} />
+        <Route path="/home" element={<MainScreen />} />
+        <Route path="/rooms/:roomId" element={<RoomDetailScreen />} />
+        <Route path="/rooms/:roomId/reports/:reportId" element={<LlmReportScreen />} />
+        <Route path="/rooms/:roomId/report" element={<LlmReportScreen />} />
+        <Route path="/rooms/:roomId/record" element={<RoomMonitoringScreen />} />
+        <Route path="/rooms/:roomId/documents" element={<DocumentUploadScreen />} />
+        <Route path="/add-room" element={<AddRoomScreen />} />
+        <Route path="/checklist" element={<RoomChecklistScreen />} />
+        <Route path="/success" element={<RoomCreationSuccessScreen />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

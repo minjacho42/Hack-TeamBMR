@@ -22,6 +22,7 @@ interface RawRoom {
   rent_monthly?: number;
   fee_included?: boolean;
   fee_mgmt?: number | null;
+  report_id?: string | null;
   created_at?: string;
   updated_at?: string;
   checklist?: { items: ChecklistMapEntry[] };
@@ -32,16 +33,16 @@ function normalizePhoto(raw?: RawRoomPhoto | null): RoomPhoto[] {
   if (!raw) {
     return [];
   }
-  const photo_id = raw.photo_id;
-  const object_url = raw.object_url;
-  if (!photo_id || !object_url) {
+  const photoId = raw.photo_id;
+  const objectUrl = raw.object_url;
+  if (!photoId || !objectUrl) {
     return [];
   }
   return [
     {
-      photo_id,
-      object_url,
-      created_at:raw.created_at ?? new Date().toISOString(),
+      photoId,
+      objectUrl,
+      createdAt: raw.created_at ?? new Date().toISOString(),
     },
   ];
 }
@@ -56,6 +57,7 @@ function normalizeRoom(raw: RawRoom): Room {
     rentMonthly: raw.rent_monthly ?? 0,
     feeIncluded: raw.fee_included ?? false,
     feeMgmt: raw.fee_mgmt ?? undefined,
+    reportId: raw.report_id ?? null,
     createdAt: raw.created_at ?? new Date().toISOString(),
     photos: normalizePhoto(raw.photo),
     checklist: raw.checklist,
@@ -111,6 +113,7 @@ export async function deleteRoom(room_id: string): Promise<void> {
 export interface RoomPhotoUploadResponse {
   photo_id: string;
   object_url: string;
+  uploaded_at?: string;
 }
 
 export async function uploadRoomPhoto(
@@ -132,8 +135,8 @@ export async function uploadRoomPhoto(
   };
 
   return {
-    photo_id: data.photo_id ?? '',
-    object_url: data.object_url ?? '',
-    created_at: data.uploaded_at ?? new Date().toISOString(),
+    photoId: data.photo_id ?? '',
+    objectUrl: data.object_url ?? '',
+    createdAt: data.uploaded_at ?? new Date().toISOString(),
   };
 }

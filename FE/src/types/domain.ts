@@ -24,7 +24,7 @@ export interface ChecklistResponseV2 {
 }
 
 export interface ChecklistCheck {
-  item_id: string;
+  itemId: string;
   checked: boolean;
   memo?: string;
 }
@@ -34,23 +34,24 @@ export interface SaveChecklistPayload {
 }
 
 export interface RoomPhoto {
-  photo_id: string;
-  object_url: string;
-  created_at: string;
+  photoId: string;
+  objectUrl: string;
+  createdAt: string;
 }
 
 export interface Room {
-  room_id: string;
+  roomId: string;
   address: string;
   type: string;
   floor: number;
   deposit: number;
-  rent_monthly: number;
-  fee_included: boolean;
-  fee_mgmt?: number;
-  created_at: string;
+  rentMonthly: number;
+  feeIncluded: boolean;
+  feeMgmt?: number;
+  createdAt: string;
   photos: RoomPhoto[];
   checklist?: RoomChecklist;
+  reportId?: string | null;
 }
 
 export interface CreateRoomPayload {
@@ -69,8 +70,8 @@ export interface RoomChecklist {
 }
 
 export interface OcrUploadResponse {
-  ocr_id: string;
-  object_url: string;
+  ocrId: string;
+  objectUrl: string;
 }
 
 export type OcrStage = 'queued' | 'processing' | 'done' | 'failed';
@@ -82,29 +83,49 @@ export interface OcrField {
 }
 
 export interface OcrReport {
-  ocr_id: string;
+  ocrId: string;
   status: OcrStage;
   text: string;
   fields?: OcrField[];
-  created_at: string;
+  createdAt: string;
 }
 
 export type LlmStage = 'queued' | 'processing' | 'done' | 'failed';
 
 export interface LlmReport {
-  room_id: string;
-  user_id: string;
+  reportId: string;
+  roomId?: string;
+  userId?: string;
   status: LlmStage;
   summary?: string;
   highlights?: string[];
   recommendations?: string[];
-  created_at: string;
+  createdAt: string;
+  cautions?: LlmReportItem[];
+  positives?: LlmReportItem[];
+  glossary?: LlmReportGlossaryItem[];
 }
 
 export interface SttBubble {
   id: string;
   speaker: number | null;
   text: string;
-  started_at?: number;
-  ended_at?: number;
+  startedAt?: number;
+  endedAt?: number;
+}
+
+export type LlmReportSeverity = 'high' | 'medium' | 'low' | 'info';
+
+export interface LlmReportItem {
+  id?: string;
+  title: string;
+  description?: string;
+  detail?: string;
+  severity?: LlmReportSeverity;
+}
+
+export interface LlmReportGlossaryItem {
+  id?: string;
+  term: string;
+  description: string;
 }
